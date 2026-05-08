@@ -4,3 +4,6 @@ dist
 .DS_Store
 
 *.sql
+
+*.sql
+import-aiven-dump.js
