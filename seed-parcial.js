@@ -1,7 +1,7 @@
 try {
   require('dotenv').config();
 } catch (error) {
-  // Si dotenv no está instalado, el script usa las variables del sistema.
+  // Si dotenv no está instalado, usa variables del sistema.
 }
 
 const mysql = require('mysql2/promise');
@@ -20,60 +20,245 @@ const config = {
       : undefined,
 };
 
-const marcas = [
-  'Levis',
-  'Nike',
-  'Adidas',
-  'Puma',
-  'Zara',
-  'H&M',
-  'Tommy Hilfiger',
-  'Calvin Klein',
-  'Lacoste',
-  'Atelier',
-  'Diesel',
-  'Guess',
-];
-
-const prendasCaballero = [
-  'Camisa Oxford Slim Fit',
-  'Pantalon Chino Beige',
-  'Chaqueta Bomber Negra',
-  'Jeans Clasico Azul',
-  'Polo Premium Algodon',
-  'Conjunto Deportivo Urbano',
-  'Traje Formal Ejecutivo',
-  'Sudadera Oversize',
-  'Pantalon Cargo Verde',
-  'Blazer Casual',
-  'Buzo Algodon Premium',
-  'Camisa Manga Corta',
-  'Chaqueta Denim Azul',
-  'Pantalon Jogger Negro',
-  'Sueter Tejido Elegante',
-  'Camisa Cuadros Manga Larga',
-  'Camiseta Sencilla Algodon',
-  'Chaqueta Casual Negra',
-  'Pantalon Slim Fit',
-  'Conjunto Tiro Deportivo',
-];
-
-const prendasDama = [
-  'Blusa Manga Larga Seda',
-  'Vestido Satinado Elegante',
-  'Falda Plisada Negra',
-  'Jeans Tiro Alto Azul',
-  'Chaqueta Casual Beige',
-  'Conjunto Deportivo Dama',
-  'Camisa Oversize Blanca',
-  'Pantalon Palazzo Negro',
-  'Blazer Ejecutivo Dama',
-  'Top Elegante Satinado',
-  'Vestido Casual Primavera',
-  'Blusa Formal Beige',
-  'Falda Denim Azul',
-  'Chaqueta Cropped Negra',
-  'Pantalon Sastre Dama',
+const catalogoBase = [
+  {
+    nombre: 'Buzo Algodon Casual',
+    marca: 'Puma',
+    id_categoria: 2,
+    imagen_url: '/productos/buzo-algodon.jpg',
+    precio: 50,
+  },
+  {
+    nombre: 'Buzo Rojo Algodon',
+    marca: 'Nike',
+    id_categoria: 1,
+    imagen_url: '/productos/buzo-rojo-algodon.jpg',
+    precio: 48,
+  },
+  {
+    nombre: 'Camisa Cuadros Manga Larga',
+    marca: 'Levis',
+    id_categoria: 1,
+    imagen_url: '/productos/camisa-cuadros-manga-larga.jpg',
+    precio: 61,
+  },
+  {
+    nombre: 'Camisa Manga Larga Celeste',
+    marca: 'Levis',
+    id_categoria: 1,
+    imagen_url: '/productos/camisa-manga-larga.jpg',
+    precio: 61,
+  },
+  {
+    nombre: 'Camiseta Sencilla Algodon',
+    marca: 'Adidas',
+    id_categoria: 2,
+    imagen_url: '/productos/camiseta-sencilla-algodon.jpg',
+    precio: 35,
+  },
+  {
+    nombre: 'Conjunto Tiro Deportivo',
+    marca: 'Adidas',
+    id_categoria: 1,
+    imagen_url: '/productos/conjunto-tiro-25.jpg.avif',
+    precio: 45,
+  },
+  {
+    nombre: 'Jordan Flight Essentials',
+    marca: 'Nike',
+    id_categoria: 1,
+    imagen_url: '/productos/jordan-flight.jpg.avif',
+    precio: 41,
+  },
+  {
+    nombre: 'Blusa Rayas Azul',
+    marca: 'Tommy Hilfiger',
+    id_categoria: 2,
+    imagen_url: '/productos/producto-3.jpg',
+    precio: 40,
+  },
+  {
+    nombre: 'Blusa Casual Beige',
+    marca: 'Calvin Klein',
+    id_categoria: 2,
+    imagen_url: '/productos/producto-6.jpg',
+    precio: 38,
+  },
+  {
+    nombre: 'Chaqueta Casual Azul',
+    marca: 'H&M',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-7.jpg',
+    precio: 52,
+  },
+  {
+    nombre: 'Tenis Urbanos Blanco Negro',
+    marca: 'Adidas',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-8.jpg',
+    precio: 60,
+  },
+  {
+    nombre: 'Blazer Rosa Elegante',
+    marca: 'Calvin Klein',
+    id_categoria: 2,
+    imagen_url: '/productos/producto-9.jpg',
+    precio: 62,
+  },
+  {
+    nombre: 'Look Urbano Negro',
+    marca: 'Nike',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-10.jpg',
+    precio: 44,
+  },
+  {
+    nombre: 'Camiseta Casual Turquesa',
+    marca: 'Puma',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-11.jpg',
+    precio: 39,
+  },
+  {
+    nombre: 'Jogger Deportivo Negro',
+    marca: 'Nike',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-12.jpg',
+    precio: 42,
+  },
+  {
+    nombre: 'Pantalon Deportivo Negro',
+    marca: 'Under Armour',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-13.jpg',
+    precio: 40,
+  },
+  {
+    nombre: 'Bermuda Casual Gris',
+    marca: 'H&M',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-14.jpg',
+    precio: 33,
+  },
+  {
+    nombre: 'Chaqueta Casual Cafe',
+    marca: 'Zara',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-15.jpg',
+    precio: 52,
+  },
+  {
+    nombre: 'Gabardina Elegante Beige',
+    marca: 'Zara',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-16.jpg',
+    precio: 57,
+  },
+  {
+    nombre: 'Vestido Minimalista Celeste',
+    marca: 'Calvin Klein',
+    id_categoria: 2,
+    imagen_url: '/productos/producto-17.jpg',
+    precio: 49,
+  },
+  {
+    nombre: 'Chaqueta Urbana Negra',
+    marca: 'Nike',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-18.jpg',
+    precio: 47,
+  },
+  {
+    nombre: 'Vestido Floral Rosado',
+    marca: 'Guess',
+    id_categoria: 2,
+    imagen_url: '/productos/producto-19.jpg',
+    precio: 54,
+  },
+  {
+    nombre: 'Traje Ejecutivo Azul',
+    marca: 'Levis',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-20.jpg',
+    precio: 100,
+  },
+  {
+    nombre: 'Outfit Casual Femenino',
+    marca: 'H&M',
+    id_categoria: 2,
+    imagen_url: '/productos/producto-21.jpg',
+    precio: 46,
+  },
+  {
+    nombre: 'Conjunto Sastre Beige',
+    marca: 'Calvin Klein',
+    id_categoria: 2,
+    imagen_url: '/productos/producto-22.jpg',
+    precio: 59,
+  },
+  {
+    nombre: 'Vestido Elegante Verde',
+    marca: 'Zara',
+    id_categoria: 2,
+    imagen_url: '/productos/producto-23.jpg',
+    precio: 58,
+  },
+  {
+    nombre: 'Camiseta Deportiva Negro Rojo',
+    marca: 'Nike',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-24.jpg',
+    precio: 41,
+  },
+  {
+    nombre: 'Camisa Blanca Slim Fit',
+    marca: 'Levis',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-25.jpg',
+    precio: 61,
+  },
+  {
+    nombre: 'Short Denim Azul',
+    marca: 'H&M',
+    id_categoria: 2,
+    imagen_url: '/productos/producto-26.jpg',
+    precio: 36,
+  },
+  {
+    nombre: 'Camiseta Negra Basica',
+    marca: 'Puma',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-27.jpg',
+    precio: 34,
+  },
+  {
+    nombre: 'Camisa Cuadros Azul',
+    marca: 'Tommy Hilfiger',
+    id_categoria: 1,
+    imagen_url: '/productos/producto-28.jpg',
+    precio: 63,
+  },
+  {
+    nombre: 'Blusa Nocturna Negra',
+    marca: 'Zara',
+    id_categoria: 2,
+    imagen_url: '/productos/producto-29.jpg',
+    precio: 43,
+  },
+  {
+    nombre: 'Abrigo Mostaza Largo',
+    marca: 'Zara',
+    id_categoria: 2,
+    imagen_url: '/productos/producto-30.jpg',
+    precio: 56,
+  },
+  {
+    nombre: 'Traje Formal Azul Marino',
+    marca: 'Levis',
+    id_categoria: 1,
+    imagen_url: '/productos/traje-formal.jpg.png',
+    precio: 100,
+  },
 ];
 
 const colores = [
@@ -89,43 +274,6 @@ const colores = [
   'Azul claro',
   'Rosado',
   'Arena',
-];
-
-const imagenes = [
-  '/productos/buzo-algodon.jpg',
-  '/productos/buzo-rojo-algodon.jpg',
-  '/productos/camisa-cuadros-manga-larga.jpg',
-  '/productos/camisa-manga-larga.jpg',
-  '/productos/camiseta-sencilla-algodon.jpg',
-  '/productos/conjunto-tiro-25.jpg.avif',
-  '/productos/jordan-flight.jpg.avif',
-  '/productos/producto-3.jpg',
-  '/productos/producto-6.jpg',
-  '/productos/producto-7.jpg',
-  '/productos/producto-8.jpg',
-  '/productos/producto-9.jpg',
-  '/productos/producto-10.jpg',
-  '/productos/producto-11.jpg',
-  '/productos/producto-12.jpg',
-  '/productos/producto-13.jpg',
-  '/productos/producto-14.jpg',
-  '/productos/producto-15.jpg',
-  '/productos/producto-16.jpg',
-  '/productos/producto-17.jpg',
-  '/productos/producto-18.jpg',
-  '/productos/producto-19.jpg',
-  '/productos/producto-20.jpg',
-  '/productos/producto-21.jpg',
-  '/productos/producto-22.jpg',
-  '/productos/producto-23.jpg',
-  '/productos/producto-24.jpg',
-  '/productos/producto-25.jpg',
-  '/productos/producto-26.jpg',
-  '/productos/producto-27.jpg',
-  '/productos/producto-28.jpg',
-  '/productos/producto-29.jpg',
-  '/productos/producto-30.jpg',
-  '/productos/traje-formal.jpg.png',
 ];
 
 const nombresClientes = [
@@ -194,6 +342,27 @@ async function insertar(conn, tabla, data) {
   return result.insertId;
 }
 
+async function eliminarPorIds(conn, tabla, columna, ids) {
+  if (!ids || ids.length === 0) return 0;
+
+  let total = 0;
+  const chunkSize = 300;
+
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    const placeholders = chunk.map(() => '?').join(',');
+
+    const [result] = await conn.execute(
+      `DELETE FROM ${normalizarTabla(tabla)} WHERE ${normalizarTabla(columna)} IN (${placeholders})`,
+      chunk
+    );
+
+    total += result.affectedRows || 0;
+  }
+
+  return total;
+}
+
 async function crearIndiceSiNoExiste(conn, tabla, nombreIndice, columnasIndice) {
   try {
     const tablas = await obtenerTablas(conn);
@@ -257,7 +426,7 @@ async function obtenerTallas(conn) {
     return rows;
   }
 
-  const tallasBase = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+  const tallasBase = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '30', '32', '34', '36'];
 
   for (const talla of tallasBase) {
     await insertar(conn, 'tallas', {
@@ -288,6 +457,95 @@ async function medirLatencia(conn, nombre, sql, params = []) {
   return ms;
 }
 
+async function limpiarCargaAnterior(conn, tablaDetalleVentas) {
+  console.log('Limpiando carga anterior del parcial...');
+
+  const [productosSeed] = await conn.query(
+    `
+    SELECT id_producto
+    FROM productos
+    WHERE nombre REGEXP ' [0-9]{4}$'
+    `
+  );
+
+  const productIds = productosSeed.map((row) => row.id_producto);
+
+  const [clientesSeed] = await conn.query(
+    `
+    SELECT id_cliente
+    FROM clientes
+    WHERE email LIKE 'cliente.%@atelier.test'
+    `
+  );
+
+  const clienteIds = clientesSeed.map((row) => row.id_cliente);
+
+  let inventarioIds = [];
+  let ventaIds = [];
+
+  if (productIds.length > 0) {
+    const placeholders = productIds.map(() => '?').join(',');
+
+    const [inventarioSeed] = await conn.execute(
+      `
+      SELECT id_inventario
+      FROM inventario
+      WHERE id_producto IN (${placeholders})
+      `,
+      productIds
+    );
+
+    inventarioIds = inventarioSeed.map((row) => row.id_inventario);
+  }
+
+  if (clienteIds.length > 0) {
+    const placeholders = clienteIds.map(() => '?').join(',');
+
+    const [ventasSeed] = await conn.execute(
+      `
+      SELECT id_venta
+      FROM ventas
+      WHERE id_cliente IN (${placeholders})
+      `,
+      clienteIds
+    );
+
+    ventaIds = ventasSeed.map((row) => row.id_venta);
+  }
+
+  if (inventarioIds.length > 0 && tablaDetalleVentas) {
+    const placeholders = inventarioIds.map(() => '?').join(',');
+
+    const [ventasPorInventario] = await conn.execute(
+      `
+      SELECT DISTINCT id_venta
+      FROM ${normalizarTabla(tablaDetalleVentas)}
+      WHERE id_inventario IN (${placeholders})
+      `,
+      inventarioIds
+    );
+
+    ventaIds = [
+      ...new Set([...ventaIds, ...ventasPorInventario.map((row) => row.id_venta)]),
+    ];
+  }
+
+  if (tablaDetalleVentas) {
+    await eliminarPorIds(conn, tablaDetalleVentas, 'id_venta', ventaIds);
+    await eliminarPorIds(conn, tablaDetalleVentas, 'id_inventario', inventarioIds);
+  }
+
+  await eliminarPorIds(conn, 'ventas', 'id_venta', ventaIds);
+  await eliminarPorIds(conn, 'inventario', 'id_inventario', inventarioIds);
+  await eliminarPorIds(conn, 'productos', 'id_producto', productIds);
+  await eliminarPorIds(conn, 'clientes', 'id_cliente', clienteIds);
+
+  console.log(`Productos de prueba eliminados: ${productIds.length}`);
+  console.log(`Clientes de prueba eliminados: ${clienteIds.length}`);
+  console.log(`Inventarios de prueba eliminados: ${inventarioIds.length}`);
+  console.log(`Ventas de prueba eliminadas: ${ventaIds.length}`);
+}
+
 async function main() {
   if (!config.host || !config.user || !config.password || !config.database) {
     console.log('Faltan variables de conexion.');
@@ -307,11 +565,11 @@ async function main() {
   if (!tablas.includes('clientes')) throw new Error('No existe la tabla clientes');
   if (!tablas.includes('inventario')) throw new Error('No existe la tabla inventario');
   if (!tablas.includes('ventas')) throw new Error('No existe la tabla ventas');
-  if (!tablaDetalleVentas) {
-    throw new Error('No encontre tabla de detalle de ventas');
-  }
+  if (!tablaDetalleVentas) throw new Error('No encontre tabla de detalle de ventas');
 
   console.log(`Tabla detalle ventas detectada: ${tablaDetalleVentas}`);
+
+  await limpiarCargaAnterior(conn, tablaDetalleVentas);
 
   await crearIndiceSiNoExiste(conn, 'productos', 'idx_productos_nombre', ['nombre']);
   await crearIndiceSiNoExiste(conn, 'productos', 'idx_productos_categoria', ['id_categoria']);
@@ -331,19 +589,18 @@ async function main() {
   const inventariosInsertados = [];
   const clientesInsertados = [];
 
-  console.log('Insertando 1100 productos con imagen...');
+  console.log('Insertando 1100 productos coherentes con imagen...');
 
   for (let i = 1; i <= 1100; i++) {
-    const esDama = i % 4 === 0;
-    const listaPrendas = esDama ? prendasDama : prendasCaballero;
-    const nombreBase = listaPrendas[i % listaPrendas.length];
+    const base = catalogoBase[(i - 1) % catalogoBase.length];
+    const numero = String(i).padStart(4, '0');
 
     const producto = {
-      nombre: `${nombreBase} ${String(i).padStart(4, '0')}`,
-      marca: marcas[i % marcas.length],
-      precio: 35 + (i % 120),
-      id_categoria: esDama ? 2 : 1,
-      imagen_url: imagenes[i % imagenes.length],
+      nombre: `${base.nombre} ${numero}`,
+      marca: base.marca,
+      precio: base.precio + (i % 7),
+      id_categoria: base.id_categoria,
+      imagen_url: base.imagen_url,
       estado: 'activo',
     };
 
