@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const XLSX = require('xlsx');
 
 const router = express.Router();
 const pool = require('../config/db');
@@ -266,28 +267,60 @@ const XLSX = require('xlsx');
 router.get('/exportar-excel', async (req, res) => {
   try {
     const [productos] = await pool.query(`
-      SELECT p.id_producto, p.nombre, p.marca, p.precio, c.nombre AS categoria,
-             p.imagen_url, SUM(i.stock) AS stock_total,
-             GROUP_CONCAT(DISTINCT t.talla) AS tallas,
-             GROUP_CONCAT(DISTINCT i.color) AS colores
+      SELECT
+        p.id_producto AS ID,
+        p.nombre AS Nombre,
+        p.marca AS Marca,
+        p.precio AS Precio,
+        CASE
+          WHEN p.id_categoria = 1 THEN 'Caballeros'
+          WHEN p.id_categoria = 2 THEN 'Damas'
+          ELSE 'Sin categoría'
+        END AS Categoria,
+        COALESCE(p.imagen_url, '') AS Imagen_URL,
+        COALESCE(SUM(i.stock), 0) AS Stock_Total,
+        COALESCE(GROUP_CONCAT(DISTINCT i.color SEPARATOR ', '), 'Sin colores') AS Colores_Disponibles
       FROM productos p
-      LEFT JOIN categorias c ON c.id_categoria = p.id_categoria
       LEFT JOIN inventario i ON i.id_producto = p.id_producto
-      LEFT JOIN tallas t ON t.id_talla = i.id_talla
-      GROUP BY p.id_producto
+      GROUP BY
+        p.id_producto,
+        p.nombre,
+        p.marca,
+        p.precio,
+        p.id_categoria,
+        p.imagen_url
+      ORDER BY p.id_producto DESC
     `);
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(productos);
-    XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(productos);
 
-    res.setHeader('Content-Disposition', 'attachment; filename="catalogo_atelier.xlsx"');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Catalogo');
 
-    XLSX.writeFile(wb, '/tmp/catalogo_atelier.xlsx');
-    res.download('/tmp/catalogo_atelier.xlsx');
+    const buffer = XLSX.write(workbook, {
+      bookType: 'xlsx',
+      type: 'buffer',
+    });
+
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="catalogo_atelier.xlsx"'
+    );
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+
+    return res.send(buffer);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Error exportando Excel:', error);
+
+    return res.status(500).json({
+      ok: false,
+      success: false,
+      message: error.message || 'No se pudo exportar el Excel',
+    });
   }
 });
 
