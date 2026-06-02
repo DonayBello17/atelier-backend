@@ -260,4 +260,93 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// --------------------- EXPORTAR EXCEL ---------------------
+const XLSX = require('xlsx');
+
+router.get('/exportar-excel', async (req, res) => {
+  try {
+    const [productos] = await pool.query(`
+      SELECT p.id_producto, p.nombre, p.marca, p.precio, c.nombre AS categoria,
+             p.imagen_url, SUM(i.stock) AS stock_total,
+             GROUP_CONCAT(DISTINCT t.talla) AS tallas,
+             GROUP_CONCAT(DISTINCT i.color) AS colores
+      FROM productos p
+      LEFT JOIN categorias c ON c.id_categoria = p.id_categoria
+      LEFT JOIN inventario i ON i.id_producto = p.id_producto
+      LEFT JOIN tallas t ON t.id_talla = i.id_talla
+      GROUP BY p.id_producto
+    `);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(productos);
+    XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+
+    res.setHeader('Content-Disposition', 'attachment; filename="catalogo_atelier.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+    XLSX.writeFile(wb, '/tmp/catalogo_atelier.xlsx');
+    res.download('/tmp/catalogo_atelier.xlsx');
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// --------------------- IMPORTAR EXCEL ---------------------
+const multerExcel = multer({ dest: 'uploads/' });
+
+router.post('/importar-excel', multerExcel.single('file'), async (req, res) => {
+  try {
+    const workbook = XLSX.readFile(req.file.path);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const datos = XLSX.utils.sheet_to_json(sheet);
+
+    let agregados = 0;
+
+    for (let row of datos) {
+      if (!row.nombre || !row.marca || !row.id_categoria) continue;
+
+      const [exist] = await pool.query(
+        'SELECT id_producto FROM productos WHERE nombre=? AND marca=? AND id_categoria=?',
+        [row.nombre, row.marca, row.id_categoria]
+      );
+
+      let id_producto;
+      if (exist.length === 0) {
+        const [result] = await pool.query(
+          'INSERT INTO productos(nombre, marca, precio, id_categoria, imagen_url) VALUES(?,?,?,?,?)',
+          [row.nombre, row.marca, row.precio || 0, row.id_categoria, row.imagen_url || '']
+        );
+        id_producto = result.insertId;
+        agregados++;
+      } else {
+        id_producto = exist[0].id_producto;
+      }
+
+      // Talla
+      const [tallaExist] = await pool.query(
+        'SELECT id_talla FROM tallas WHERE talla=?',
+        [row.talla]
+      );
+
+      let id_talla;
+      if (tallaExist.length === 0) {
+        const [tResult] = await pool.query('INSERT INTO tallas(talla) VALUES(?)', [row.talla]);
+        id_talla = tResult.insertId;
+      } else {
+        id_talla = tallaExist[0].id_talla;
+      }
+
+      // Inventario
+      await pool.query(
+        'INSERT INTO inventario(id_producto, id_talla, color, stock) VALUES(?,?,?,?)',
+        [id_producto, id_talla, row.color || '', row.stock || 0]
+      );
+    }
+
+    res.json({ success: true, message: `Importación completada: ${agregados} productos agregados.` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;
