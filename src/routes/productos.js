@@ -262,7 +262,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // --------------------- EXPORTAR EXCEL ---------------------
-const XLSX = require('xlsx');
+
 
 router.get('/exportar-excel', async (req, res) => {
   try {
