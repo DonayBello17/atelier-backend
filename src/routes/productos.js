@@ -327,58 +327,240 @@ router.get('/exportar-excel', async (req, res) => {
 // --------------------- IMPORTAR EXCEL ---------------------
 const multerExcel = multer({ dest: 'uploads/' });
 
-router.post('/importar-excel', multerExcel.single('file'), async (req, res) => {
+const excelDir = path.join(__dirname, '..', '..', 'uploads', 'excel');
+fs.mkdirSync(excelDir, { recursive: true });
+
+const uploadExcelImport = multer({ dest: excelDir });
+
+router.post('/importar-excel', uploadExcelImport.single('file'), async (req, res) => {
+  let conn;
+
   try {
+    if (!req.file) {
+      return res.status(400).json({
+        ok: false,
+        success: false,
+        message: 'No se recibió ningún archivo Excel',
+      });
+    }
+
     const workbook = XLSX.readFile(req.file.path);
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const datos = XLSX.utils.sheet_to_json(sheet);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const filas = XLSX.utils.sheet_to_json(sheet);
 
-    let agregados = 0;
+    if (!filas.length) {
+      return res.status(400).json({
+        ok: false,
+        success: false,
+        message: 'El archivo Excel está vacío',
+      });
+    }
 
-    for (let row of datos) {
-      if (!row.nombre || !row.marca || !row.id_categoria) continue;
+    const normalizarClave = (valor) =>
+      String(valor || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, '_')
+        .trim();
 
-      const [exist] = await pool.query(
-        'SELECT id_producto FROM productos WHERE nombre=? AND marca=? AND id_categoria=?',
-        [row.nombre, row.marca, row.id_categoria]
+    const obtenerValor = (fila, nombres) => {
+      const mapa = {};
+
+      Object.keys(fila).forEach((key) => {
+        mapa[normalizarClave(key)] = fila[key];
+      });
+
+      for (const nombre of nombres) {
+        const clave = normalizarClave(nombre);
+        if (mapa[clave] !== undefined && mapa[clave] !== null) {
+          return mapa[clave];
+        }
+      }
+
+      return '';
+    };
+
+    const obtenerCategoria = (valor) => {
+      const texto = String(valor || '').toLowerCase().trim();
+
+      if (texto === '1' || texto.includes('caballero')) return 1;
+      if (texto === '2' || texto.includes('dama')) return 2;
+
+      return Number(valor) || null;
+    };
+
+    conn = await pool.getConnection();
+
+    const [columnasTallas] = await conn.query('SHOW COLUMNS FROM tallas');
+    const nombresColumnasTallas = columnasTallas.map((col) => col.Field);
+
+    const columnaTalla =
+      nombresColumnasTallas.includes('talla')
+        ? 'talla'
+        : nombresColumnasTallas.includes('nombre_talla')
+          ? 'nombre_talla'
+          : nombresColumnasTallas.includes('nombre')
+            ? 'nombre'
+            : null;
+
+    if (!columnaTalla) {
+      return res.status(500).json({
+        ok: false,
+        success: false,
+        message: 'No se encontró una columna válida para tallas',
+      });
+    }
+
+    await conn.beginTransaction();
+
+    let productosAgregados = 0;
+    let productosExistentes = 0;
+    let inventariosAgregados = 0;
+    let inventariosExistentes = 0;
+    let filasOmitidas = 0;
+
+    for (const fila of filas) {
+      const nombre = String(obtenerValor(fila, ['nombre', 'Nombre']) || '').trim();
+      const marca = String(obtenerValor(fila, ['marca', 'Marca']) || '').trim();
+      const precio = Number(obtenerValor(fila, ['precio', 'Precio']) || 0);
+      const id_categoria = obtenerCategoria(
+        obtenerValor(fila, ['id_categoria', 'categoria', 'Categoría', 'Categoria'])
+      );
+      const imagen_url = String(
+        obtenerValor(fila, ['imagen_url', 'Imagen_URL', 'Imagen URL']) || ''
+      ).trim();
+
+      const talla = String(obtenerValor(fila, ['talla', 'Talla']) || '').trim();
+      const color = String(obtenerValor(fila, ['color', 'Color']) || '').trim();
+      const stock = Number(obtenerValor(fila, ['stock', 'Stock']) || 0);
+
+      if (!nombre || !id_categoria || precio < 0 || stock < 0) {
+        filasOmitidas++;
+        continue;
+      }
+
+      const [productoExiste] = await conn.query(
+        `
+        SELECT id_producto
+        FROM productos
+        WHERE LOWER(TRIM(nombre)) = ?
+          AND LOWER(TRIM(COALESCE(marca, ''))) = ?
+          AND id_categoria = ?
+        LIMIT 1
+        `,
+        [nombre.toLowerCase(), marca.toLowerCase(), id_categoria]
       );
 
       let id_producto;
-      if (exist.length === 0) {
-        const [result] = await pool.query(
-          'INSERT INTO productos(nombre, marca, precio, id_categoria, imagen_url) VALUES(?,?,?,?,?)',
-          [row.nombre, row.marca, row.precio || 0, row.id_categoria, row.imagen_url || '']
-        );
-        id_producto = result.insertId;
-        agregados++;
+
+      if (productoExiste.length > 0) {
+        id_producto = productoExiste[0].id_producto;
+        productosExistentes++;
       } else {
-        id_producto = exist[0].id_producto;
+        const [productoInsertado] = await conn.query(
+          `
+          INSERT INTO productos (nombre, marca, precio, id_categoria, imagen_url)
+          VALUES (?, ?, ?, ?, ?)
+          `,
+          [nombre, marca, precio, id_categoria, imagen_url]
+        );
+
+        id_producto = productoInsertado.insertId;
+        productosAgregados++;
       }
 
-      // Talla
-      const [tallaExist] = await pool.query(
-        'SELECT id_talla FROM tallas WHERE talla=?',
-        [row.talla]
+      if (!talla) {
+        continue;
+      }
+
+      const [tallaExiste] = await conn.query(
+        `
+        SELECT id_talla
+        FROM tallas
+        WHERE LOWER(TRIM(${columnaTalla})) = ?
+        LIMIT 1
+        `,
+        [talla.toLowerCase()]
       );
 
       let id_talla;
-      if (tallaExist.length === 0) {
-        const [tResult] = await pool.query('INSERT INTO tallas(talla) VALUES(?)', [row.talla]);
-        id_talla = tResult.insertId;
+
+      if (tallaExiste.length > 0) {
+        id_talla = tallaExiste[0].id_talla;
       } else {
-        id_talla = tallaExist[0].id_talla;
+        const [tallaInsertada] = await conn.query(
+          `
+          INSERT INTO tallas (${columnaTalla})
+          VALUES (?)
+          `,
+          [talla]
+        );
+
+        id_talla = tallaInsertada.insertId;
       }
 
-      // Inventario
-      await pool.query(
-        'INSERT INTO inventario(id_producto, id_talla, color, stock) VALUES(?,?,?,?)',
-        [id_producto, id_talla, row.color || '', row.stock || 0]
+      const [inventarioExiste] = await conn.query(
+        `
+        SELECT id_inventario
+        FROM inventario
+        WHERE id_producto = ?
+          AND id_talla = ?
+          AND LOWER(TRIM(COALESCE(color, ''))) = ?
+        LIMIT 1
+        `,
+        [id_producto, id_talla, color.toLowerCase()]
       );
+
+      if (inventarioExiste.length > 0) {
+        inventariosExistentes++;
+        continue;
+      }
+
+      await conn.query(
+        `
+        INSERT INTO inventario (id_producto, id_talla, color, stock)
+        VALUES (?, ?, ?, ?)
+        `,
+        [id_producto, id_talla, color, stock]
+      );
+
+      inventariosAgregados++;
     }
 
-    res.json({ success: true, message: `Importación completada: ${agregados} productos agregados.` });
+    await conn.commit();
+
+    fs.unlink(req.file.path, () => {});
+
+    return res.json({
+      ok: true,
+      success: true,
+      message: `Importación completada. Productos agregados: ${productosAgregados}. Productos existentes: ${productosExistentes}. Inventarios agregados: ${inventariosAgregados}. Inventarios existentes: ${inventariosExistentes}. Filas omitidas: ${filasOmitidas}.`,
+      resumen: {
+        productosAgregados,
+        productosExistentes,
+        inventariosAgregados,
+        inventariosExistentes,
+        filasOmitidas,
+      },
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    if (conn) {
+      await conn.rollback();
+    }
+
+    console.error('Error importando Excel:', error);
+
+    return res.status(500).json({
+      ok: false,
+      success: false,
+      message: error.message || 'No se pudo importar el Excel',
+    });
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 });
 
